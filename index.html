@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width">
+  <title>Chess</title>
+  <link href="style.css" rel="stylesheet" type="text/css" />
+</head>
+
+<body>
+  <div id="navbar">
+    <h1>Chess</h1>
+    <div class="navbar-opts">
+      <button class="login">Login</button>
+      <button class="signup">Sign Up</button>
+    </div>
+  </div>
+  <div id="board-container">
+    <div class="player-info-container">
+      <div class="player-info">
+        <div class="player-pfp"></div>
+        <div class="player-details">
+          <div class="player-name">Player 1</div>
+          <div class="player-elo">Elo: 1100</div>
+          <div class="player-score" id="white-score"></div>
+        </div>
+      </div>
+      <div class="timer" id="white-time">10:00</div>
+    </div>
+    <div id="game-info"></div>
+    <div id="board"></div>
+    <div class="player-info-container">
+      <div class="player-info">
+        <div class="player-pfp"></div>
+        <div class="player-details">
+          <div class="player-name">Player 2</div>
+          <div class="player-elo">Elo: 1100</div>
+          <div class="player-score" id="black-score"></div>
+        </div>
+      </div>
+      <div class="timer" id="black-time">10:00</div>
+    </div>
+  </div>
+  <script src="script.js" type="module"></script>
+</body>
+
+</html>
