@@ -5,6 +5,7 @@ import Rook from './pieces/Rook.js';
 import Queen from './pieces/Queen.js';
 import King from './pieces/King.js';
 import ChessPiece from './pieces/ChessPiece.js';
+import Draggable from './Draggable.js';
 
 export default class Board {
   constructor(boardHtml){
@@ -14,11 +15,12 @@ export default class Board {
     this.blackPieces = [];
     this.whiteScore = 0;
     this.blackScore = 0;
-    this.whiteTime = 60*10;
+    this.whiteTime = 60*10; //seconds
     this.blackTime = 60*10;
     this.selectedPiece = null;
     this.cells = [];
     this.createGrid();
+    this.hideAllNotches();
     this.createPieces();
     ChessPiece.board = this;
     this.gameState = "playing";
@@ -28,8 +30,13 @@ export default class Board {
     this.getGameState();
   }
   hideAllNotches(){
-    this.cells.forEach(row => row.forEach(cell => cell.notchHtml.classList.add('hidden')));
+    this.cells.forEach(row => row.forEach(cell => {
+      cell.notchHtml.classList.add('hidden');
+      cell.captureNotchHtml.classList.add('hidden');
+    }));
   }
+
+  //update current player's time
   updateTime(){
     if(this.gameState != "playing") 
       return;
@@ -53,7 +60,10 @@ export default class Board {
       whiteTime.classList.remove('selected');
       this.blackTime--;
     }
+    this.getGameState();
   }
+
+  //create 8 x 8 chessboard
   createGrid(){
     const { cells, html } = this;
     for(let i = 1; i <= 8; i++){
@@ -84,45 +94,61 @@ export default class Board {
           cell.appendChild(colMarker);
         }
 
+        const captureNotch = document.createElement('div');
+        captureNotch.classList.add('capture-notch');
+        
+        cell.appendChild(captureNotch);
         cell.appendChild(notch);
         html.appendChild(cell);
-        cells.at(-1).push(new Cell(i-1, j-1, cell, notch));
+        cells.at(-1).push(new Cell(i-1, j-1, cell, notch, captureNotch));
       }
     }
     // when cell is clicked select, move, or deselect piece
-    this.cells.forEach(row => row.forEach(cell => cell.cellHtml.addEventListener('click', e => {
-      this.hideAllNotches();
-      if(this.selectedPiece){
-        this.selectedPiece.clearAttackPaths();
-        this.selectedPiece.getSpaces();
-        for(const path of this.selectedPiece.attackPaths){
-          if(path.cells.includes(cell)){
-            this.selectedPiece.move(cell);
-            this.turn++;
-            this.getGameState();
-            this.selectedPiece = null;
-            console.log('moved the piece');
-            return;
+    for(const cell of this.getCells()){
+      cell.cellHtml.addEventListener('mousedown', e => {
+        this.hideAllNotches();
+        if(this.selectedPiece){
+          this.selectedPiece.clearAttackPaths();
+          this.selectedPiece.getSpaces();
+          for(const path of this.selectedPiece.attackPaths){
+            if(path.cells.includes(cell)){
+              this.selectedPiece.move(cell);
+              this.turn++;
+              this.getGameState();
+              this.selectedPiece = null;
+              console.log('moved the piece');
+              return;
+            }
           }
         }
-      }
-      const color = this.turn % 2 == 0? 'white' : 'black';
-      if(cell.chessPiece && cell.chessPiece.color != color) return;
-      this.selectedPiece = cell.chessPiece;
+        const color = this.turn % 2 == 0? 'white' : 'black';
+        if(cell.chessPiece && cell.chessPiece.color != color) return;
+        this.selectedPiece = cell.chessPiece;
 
-      if(!this.selectedPiece) return;
-      this.selectedPiece.clearAttackPaths();
-      this.selectedPiece.getSpaces();
-      this.selectedPiece.displayAttackPaths();
-    })));
+        if(!this.selectedPiece) return;
+        this.selectedPiece.clearAttackPaths();
+        this.selectedPiece.getSpaces();
+        this.selectedPiece.displayAttackPaths();                                                                         
+      });
+    }
   }
   createPieces(){
     const { cells, whitePieces, blackPieces } = this;
 
-    function addPiece(piece){
+    Draggable.cells = this.getCells();
+    for(const cell of Draggable.cells)
+      Draggable.rects.push(cell.cellHtml.getBoundingClientRect());
+    document.addEventListener('scroll', e => {
+      Draggable.rects = [];
+      for(const cell of this.getCells())
+        Draggable.rects.push(cell.cellHtml.getBoundingClientRect());
+    });
+    const addPiece = (piece) => {
       const { row, col } = piece;
       cells[row][col].chessPiece = piece;
       cells[row][col].cellHtml.appendChild(piece.html);
+      
+      piece.makeDraggable(this.html);
       piece.color == "white"? whitePieces.push(piece) : blackPieces.push(piece);
     }
 
@@ -202,8 +228,7 @@ export default class Board {
     for(const piece of pieces){
       piece.clearAttackPaths();
       piece.getSpaces();
-      const temp = piece.attackPaths.filter(path => path.cells.length > 0);
-      console.log(temp);
+    
       moveablePieces.push(
         piece.attackPaths.filter(path => path.cells.length > 0).length > 0
       );
@@ -229,9 +254,17 @@ export default class Board {
     
     return false;
   }
-
+  getTimeout(){
+    if(this.whiteTime < 0){
+      return 'Black';
+    }
+    if(this.blackTime < 0){
+      return 'White';
+    }
+    return null;
+  }
   getGameState(){
-    const color = this.turn % 2 == 0? 'white' : 'black';
+    let color = this.turn % 2 == 0? 'white' : 'black';
     for(const piece of this.whitePieces){
       piece.clearAttackPaths();
       piece.getSpaces(false);
@@ -242,7 +275,7 @@ export default class Board {
     }
     const gameInfo = document.getElementById('game-info');
     const gameOverConditions = [
-      "checkmate", "stalemate", "insufficient material"
+      'checkmate', 'stalemate', 'insufficient material', 'timeout'
     ];
     gameInfo.textContent = 'It is '+color.toUpperCase()+'\'s turn';
     if(this.whiteKing.getCheck())
@@ -251,6 +284,7 @@ export default class Board {
       gameInfo.textContent = 'Black is in check';
     if(gameOverConditions.includes(this.gameState.toLowerCase())) return;
 
+    color = this.turn % 2 == 0? 'black' : 'white';
     if(this.getCheckmate()){
       this.gameState = "checkmate";
       gameInfo.textContent = `${color.toUpperCase()} WINS!`;
@@ -269,21 +303,34 @@ export default class Board {
       alert("Insufficient Material!");
       return;
     }
+    const timeout = this.getTimeout();
+    
+    if(timeout){
+      gameInfo.textContent = timeout+" Wins by Timeout";
+      this.gameState = 'timeout';
+      alert(timeout+" Wins by Timeout");
+      return;
+    }
+  }
+
+  getCells(){
+    const arr = [];
+    for(const row of this.cells){
+      for(const cell of row)
+        arr.push(cell)
+    }
+    return arr;
   }
 }
 
 class Cell {
-  constructor(row, col, cellHtml, notchHtml) {
+  static board = null;
+  constructor(row, col, cellHtml, notchHtml, captureNotchHtml) {
     this.row = row;
     this.col = col;
     this.cellHtml = cellHtml;
     this.notchHtml = notchHtml;
+    this.captureNotchHtml = captureNotchHtml;
     this.chessPiece = null;
-    this.clickFunction = null;
-  }
-  removeClickFunction(){
-    if(!this.clickFunction) return;
-    this.cellHtml.removeEventListener('click', this.clickFunction);
-    this.clickFunction = null;
   }
 }

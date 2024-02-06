@@ -47,7 +47,5 @@ export default class Knight extends ChessPiece {
 
     if(!getKing) return;
     this.removeIllegalMoves();
-    if(!check) return;
-    this.handleCheck(check);
   }
 }

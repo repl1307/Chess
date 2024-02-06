@@ -23,9 +23,40 @@ export default class ChessPiece {
     this.protectedCells = [];
     this.piece = piece.toLowerCase();
     this.html = this.createHTML();
-    this.drag = new Draggable(this.html);
+    this.drag = null;
   }
-  
+  makeDraggable(bounds=null){
+    this.drag = new Draggable(this.html, bounds);
+    this.drag.ondragstart = () => {
+      console.log('drag start');
+    };
+    //while dragging - highlight hovered over cell
+    this.drag.ondrag = () => {
+      const cell = this.drag.getCollision();
+      if(cell)
+        cell.cellHtml.style.boxShadow = '0 0 0 3px inset white';
+    };
+    //drag end - snap to nearest cell
+    this.drag.ondragend = () => {
+      const collision = this.drag.getCollision();
+      this.html.style.left = '0';
+      this.html.style.top = '0';
+
+      const board = ChessPiece.board;
+      if(collision && board.selectedPiece){
+        board.selectedPiece.clearAttackPaths();
+        board.selectedPiece.getSpaces();
+        for(const path of board.selectedPiece.attackPaths){
+          if(path.cells.includes(collision)){
+            board.selectedPiece.move(collision);
+            board.turn++;
+            board.getGameState();
+            board.selectedPiece = null;
+          }
+        }
+      }
+    }
+  }
   createHTML(){
     const html = document.createElement('div');
     html.classList.add('chess-piece');
@@ -66,7 +97,6 @@ export default class ChessPiece {
   move(cell){
     const currentCell = ChessPiece.board.cells[this.row][this.col];
     currentCell.chessPiece = null;
-    currentCell.removeClickFunction();
     
     if(this.firstMove) this.firstMove = false;
     this.row = cell.row;
@@ -77,8 +107,6 @@ export default class ChessPiece {
       ChessPiece.board.removePiece(cell.chessPiece);
     }
     cell.chessPiece = this;
-    cell.removeClickFunction();
-    
     ChessPiece.board.hideAllNotches();
   }
   
@@ -139,12 +167,6 @@ export default class ChessPiece {
   }
 
   clearAttackPaths(){
-    const { attackPaths } = this;
-    for(const path of attackPaths){
-      for(const cell of path.cells){
-        cell.removeClickFunction();
-      }
-    }
     this.attackPaths = [];
     this.protectedCells = [];
   }
@@ -152,15 +174,11 @@ export default class ChessPiece {
   displayAttackPaths(){
     const { attackPaths } = this;
     for(const path of attackPaths){
-      for(const cell of path.cells){
-        cell.removeClickFunction();
-        cell.clickFunction = e => { this.move(cell); console.log('moved')};
-        //cell.cellHtml.addEventListener('click', cell.clickFunction);
-      }
-    }
-    for(const path of attackPaths){
       for(const cell of path.cells){ 
-        cell.notchHtml.classList.remove('hidden');
+        if(!cell.chessPiece)
+          cell.notchHtml.classList.remove('hidden');
+        else
+          cell.captureNotchHtml.classList.remove('hidden');
       }
     }
   }
@@ -191,28 +209,5 @@ export default class ChessPiece {
       iterationCount++;
     } while (cell && iterationCount < iterations);
     attackPaths.push(newAttackPath);
-  }
-
-  //removes cells that don't end check
-  //check = piece that is putting king in check
-  handleCheck(check){
-    check.clearAttackPaths();
-    check.getSpaces(false);
-
-    const checkPath = check.attackPaths.filter(p => {return p.isCheckPath})[0];
-    const checkCells = [];
-    checkPath.cells.forEach(c => checkCells.push(c));
-    checkCells.push(check.getCell(check.row, check.col));
-    console.log(`${check.color} ${check.piece}`);
-    for(const path of this.attackPaths){
-        for(let i = 0; i < path.cells.length;){
-          const cell = path.cells[i];
-          if(!checkCells.includes(cell)){
-            path.cells.splice(i, 1);
-            continue;
-          }
-          i++;
-        }
-    }
   }
 }

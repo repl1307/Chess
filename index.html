@@ -23,7 +23,14 @@
         <div class="player-details">
           <div class="player-name">Player 1</div>
           <div class="player-elo">Elo: 1100</div>
-          <div class="player-score" id="white-score"></div>
+          <div class="player-score" id="white-score">
+            <script>
+              for(let i = 0; i < 16; i++){
+                document.getElementById('white-score').innerHTML += 
+                  '<img src="images/chess-pieces/bP.svg"/>';
+              }
+            </script>
+          </div>
         </div>
       </div>
       <div class="timer" id="white-time">10:00</div>
